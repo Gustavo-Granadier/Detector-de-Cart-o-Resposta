@@ -141,7 +141,7 @@ def separar_questoes(coluna: np.ndarray, salvar_imagens: bool = False) -> list:
 
         if salvar_imagens:
             questao_debug = cv2.cvtColor(questao, cv2.COLOR_GRAY2BGR)
-            largura_parte = largura // 6 
+            largura_parte = largura // 6
 
             for j in range(1, 6):
                 x = j * largura_parte
@@ -174,7 +174,7 @@ def separar_questoes(coluna: np.ndarray, salvar_imagens: bool = False) -> list:
             opcoes.append(pixels_pretos)
 
         max_pixels = max(opcoes)
-        if max_pixels > 100:
+        if max_pixels > 600:
             resposta = chr(65 + opcoes.index(max_pixels))
         else:
             resposta = '-'
@@ -186,8 +186,8 @@ def separar_questoes(coluna: np.ndarray, salvar_imagens: bool = False) -> list:
 
 def main():
     pasta_imagens = "img_anonimizado"
-    arquivos = [f for f in os.listdir(
-        pasta_imagens) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]
+    arquivos = sorted([f for f in os.listdir(
+        pasta_imagens) if f.lower().endswith(('.jpg', '.png', '.jpeg'))])
 
     if not arquivos:
         print("Nenhuma imagem encontrada na pasta.")
@@ -195,9 +195,9 @@ def main():
 
     dados_formatados = []
 
-    for indice_candidato, nome_arquivo in enumerate(arquivos, start=1):
+    for numero_candidato, nome_arquivo in enumerate(arquivos, 1):
         caminho_imagem = os.path.join(pasta_imagens, nome_arquivo)
-        print(f"\nProcessando: {nome_arquivo} (candidato {indice_candidato})")
+        print(f"\nProcessando: {nome_arquivo}")
 
         try:
             imagem_processada = processar_imagem(caminho_imagem)
@@ -210,24 +210,37 @@ def main():
                     coluna, salvar_imagens=(indice == 1))
                 respostas_cartao.extend(respostas)
 
-            for i, resposta in enumerate(respostas_cartao, start=1):
-                dados_formatados.append([i, resposta, indice_candidato])
+            # Verifica se todas as respostas são '-'
+            if all(resposta == '-' for resposta in respostas_cartao):
+                print(
+                    f" Cartão {numero_candidato} ignorado - todas as questões em branco: {nome_arquivo}")
+                continue
 
-            print(f"\nRespostas (candidato {indice_candidato}):")
+            # Se chegou aqui, o cartão tem pelo menos uma resposta válida
+            for i, resposta in enumerate(respostas_cartao, start=1):
+                dados_formatados.append([i, resposta, numero_candidato])
+
+            print(f"\nRespostas (candidato {numero_candidato}):")
             for num, resp in enumerate(respostas_cartao, 1):
                 print(f"Questão {num}: {resp}")
 
         except Exception as e:
-            print(f" Erro ao processar {nome_arquivo}: {e}")
-            dados_formatados.append([None, "ERRO", indice_candidato])
+            print(f" Erro ao processar candidato {numero_candidato}: {e}")
             continue
 
-    with open("respostas.csv", "w", newline="", encoding="utf-8") as f_csv:
-        writer = csv.writer(f_csv, delimiter=';')
-        writer.writerow(["questao", "resposta", "candidato"])
-        writer.writerows(dados_formatados)
+    if dados_formatados:
+        with open("respostas.csv", "w", newline="", encoding="utf-8") as f_csv:
+            writer = csv.writer(f_csv, delimiter=',')
+            writer.writerow(["questao", "resposta", "candidato"])
+            writer.writerows(dados_formatados)
 
-    print("\n Respostas salvas em 'respostas_final.csv' no formato esperado!")
+        # Conta quantos candidatos únicos foram processados
+        candidatos_processados = len(set(row[2] for row in dados_formatados))
+        print(f"\nRespostas salvas em 'respostas.csv'!")
+        print(
+            f"Total de cartões válidos processados: {candidatos_processados}")
+    else:
+        print("\nNenhum cartão válido foi processado!")
 
 
 if __name__ == "__main__":
